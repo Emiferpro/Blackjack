@@ -1,1 +1,2 @@
-Add readme
+# BlackJack
+Proyecto final programación
