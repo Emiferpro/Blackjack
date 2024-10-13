@@ -25,4 +25,12 @@ public class Mazo {
     public boolean hayCartas() {
         return !cartas.isEmpty();
     }
+
+    public int cartasRestantes() {
+        return cartas.size(); // Retorna el número de cartas restantes en el mazo
+    }
+
+    public ArrayList<Carta> getCartas() {
+        return cartas; // Devuelve la lista de cartas en el mazo
+    }
 }

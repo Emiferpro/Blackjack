@@ -3,10 +3,12 @@ import java.util.ArrayList;
 public class Jugador {
     private String nombre;
     private ArrayList<Carta> mano;
+    private int dinero; // Dinero del jugador
 
     public Jugador(String nombre) {
         this.nombre = nombre;
         mano = new ArrayList<>();
+        dinero = 100; // Dinero inicial
     }
 
     public void agregarCarta(Carta carta) {
@@ -41,8 +43,20 @@ public class Jugador {
         return mano;
     }
 
+    public int getDinero() {
+        return dinero;
+    }
+
+    public void sumarDinero(int cantidad) {
+        dinero += cantidad;
+    }
+
+    public void restarDinero(int cantidad) {
+        dinero -= cantidad;
+    }
+
     @Override
     public String toString() {
-        return nombre + " tiene " + mano.toString();
+        return nombre + " tiene " + mano.toString() + " y $" + dinero;
     }
 }
