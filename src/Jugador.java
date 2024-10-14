@@ -1,4 +1,7 @@
 import java.util.ArrayList;
+import java.io.*;
+import java.net.*;
+import java.util.List;
 
 public class Jugador {
     private String nombre;
