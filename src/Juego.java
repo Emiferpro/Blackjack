@@ -203,6 +203,7 @@ public class Juego extends JFrame {
                 break;
             } else if (puntosDealer < 17 || probabilidadDePasarse < 0.5) {
                 dealer.agregarCarta(mazo.sacarCarta());
+                mostrarCartasDealer(); // Redibujar cada que el dealer juegue
                 JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
                 lblPuntosDealer.setText("Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
 
