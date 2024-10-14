@@ -241,14 +241,19 @@ public class Juego extends JFrame {
     private double calcularProbabilidadDePasarse(int puntosDealer, int cartasRestantes) {
         if (cartasRestantes == 0) return 0.0; // Evita división por cero
 
+        // Cartas que podrían hacer que el dealer se pase
         int cartasQueHacenPasarse = 0;
-        for (int i = 1; i <= 10; i++) {
-            if (puntosDealer + i > 21) {
+
+        // Contamos las cartas que harán que el dealer se pase
+        for (Carta carta : mazo.getCartasRestantes()) {
+            if (puntosDealer + carta.valorEnPuntos() > 21) {
                 cartasQueHacenPasarse++;
             }
         }
+
         return (double) cartasQueHacenPasarse / cartasRestantes; // Retorna probabilidad
     }
+
 
     private void reiniciarJuego() {
         String[] options = new String[] {"Si", "No", "Salir"};

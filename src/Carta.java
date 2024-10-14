@@ -22,9 +22,10 @@ public class Carta {
     // Método para obtener el valor en puntos de la carta
     public int valorEnPuntos() {
         switch (valor) {
-            case "J", "Q", "K" -> {
-                return 10;
-            }
+            case "J" -> { return 11; }
+            case "Q" -> { return 12; }
+            case "K" -> { return 13; }
+
             case "A" -> {
                 return 11; // Ace puede ser 1 o 11, se manejará en la clase Jugador
             }

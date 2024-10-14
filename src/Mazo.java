@@ -2,7 +2,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class Mazo {
-    private ArrayList<Carta> cartas;
+    private final ArrayList<Carta> cartas;
 
     public Mazo() {
         cartas = new ArrayList<>();
@@ -19,18 +19,17 @@ public class Mazo {
     }
 
     public Carta sacarCarta() {
-        return cartas.remove(cartas.size() - 1); // Saca la carta de arriba del mazo
+        return cartas.removeLast(); // Saca la carta de arriba del mazo
     }
 
     public boolean hayCartas() {
         return !cartas.isEmpty();
     }
-
     public int cartasRestantes() {
         return cartas.size(); // Retorna el número de cartas restantes en el mazo
     }
 
-    public ArrayList<Carta> getCartas() {
-        return cartas; // Devuelve la lista de cartas en el mazo
+    public ArrayList<Carta> getCartasRestantes() {
+        return cartas;
     }
 }
