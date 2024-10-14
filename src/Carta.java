@@ -1,10 +1,14 @@
 public class Carta {
-    private String palo; // Corazones, Diamantes, Tréboles, Picas
-    private String valor; // 2-10, J, Q, K, A
+    private final String palo; // Corazones, Diamantes, Tréboles, Picas
+    private final String valor; // 2-10, J, Q, K, A
 
     public Carta(String palo, String valor) {
         this.palo = palo;
         this.valor = valor;
+    }
+
+    public static Carta getEmpty() {
+        return new Carta("null", "null");
     }
 
     public String getPalo() {
@@ -18,14 +22,15 @@ public class Carta {
     // Método para obtener el valor en puntos de la carta
     public int valorEnPuntos() {
         switch (valor) {
-            case "J":
-            case "Q":
-            case "K":
+            case "J", "Q", "K" -> {
                 return 10;
-            case "A":
+            }
+            case "A" -> {
                 return 11; // Ace puede ser 1 o 11, se manejará en la clase Jugador
-            default:
+            }
+            default -> {
                 return Integer.parseInt(valor);
+            }
         }
     }
 

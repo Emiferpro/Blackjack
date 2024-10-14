@@ -3,19 +3,19 @@ import java.awt.*;
 import java.io.File;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 
 public class Juego extends JFrame {
+    private String nombreJugador;
     private Jugador jugador;
     private Jugador dealer; // Usar Jugador como dealer
     private Mazo mazo;
-    private final JTextArea areaTexto;
     private final JButton btnPedirCarta;
     private final JButton btnPlantarse;
     private final JButton btnVolverAJugar;
+    private final JPanel panelCartasDealer;
     private final JPanel panelCartas;
     private final JLabel lblPuntosJugador;
     private final JLabel lblPuntosDealer;
@@ -24,21 +24,22 @@ public class Juego extends JFrame {
 
     public Juego() {
         setTitle("Blackjack");
-        setSize(600, 400);
+        setSize(600, 450);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // Área de texto para mostrar el estado del juego
-        areaTexto = new JTextArea();
-        areaTexto.setEditable(false);
-        add(new JScrollPane(areaTexto), BorderLayout.NORTH);
+        // Panel para mostrar cartas del dealer
+        panelCartasDealer = new JPanel();
+        panelCartasDealer.setLayout(new FlowLayout());  // Puedes cambiar el layout si lo deseas
+        panelCartasDealer.setBorder(BorderFactory.createTitledBorder("Dealer")); // Añadir borde con título
+        add(panelCartasDealer, BorderLayout.NORTH); // Agregar el panel del dealer en la parte superior
 
-        // Panel para mostrar cartas
+        // Panel para mostrar cartas del jugador
         panelCartas = new JPanel();
-        panelCartas.setLayout(new FlowLayout());
-        add(panelCartas, BorderLayout.CENTER);
-
+        panelCartas.setLayout(new FlowLayout());  // Layout para las cartas del jugador
+        panelCartas.setBorder(BorderFactory.createTitledBorder("Jugador")); // Añadir borde con título
+        add(panelCartas, BorderLayout.CENTER); // Agregar el panel del jugador en el centro
         // Panel de botones
         JPanel panelBotones = new JPanel();
         btnPedirCarta = new JButton("Pedir Carta");
@@ -67,9 +68,12 @@ public class Juego extends JFrame {
     }
 
     private void mostrarMenuInicio() {
-        String nombreJugador = JOptionPane.showInputDialog("Introduce tu nombre:");
+        if (jugador == null) {
+            nombreJugador = JOptionPane.showInputDialog("Introduce tu nombre:");
+        }
         if (nombreJugador != null && !nombreJugador.isEmpty()) {
             jugador = new Jugador(nombreJugador);
+            panelCartas.setBorder(BorderFactory.createTitledBorder(nombreJugador));
             dealer = new Jugador("Dealer"); // Inicializa al dealer
             iniciarJuego();
         } else {
@@ -88,12 +92,11 @@ public class Juego extends JFrame {
 
         mostrarCartas(); // Muestra las cartas del jugador
         mostrarCartasDealer(); // Muestra solo una carta del dealer
-        areaTexto.setText(jugador.toString() + "\n");
         lblPuntosJugador.setText("Puntos Jugador: " + jugador.totalMano());
-        lblPuntosDealer.setText("Puntos Dealer: " + dealer.totalMano());
+        lblPuntosDealer.setText("Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??"));
 
         // Iniciar música de fondo
-        reproducirMusica("sound.wav");
+        reproducirMusica();
     }
 
     private void mostrarCartas() {
@@ -108,21 +111,27 @@ public class Juego extends JFrame {
     }
 
     private void mostrarCartasDealer() {
-        panelCartas.removeAll(); // Limpia el panel antes de agregar nuevas cartas
+        panelCartasDealer.removeAll(); // Limpia el panel antes de agregar nuevas cartas
         if (mostrarTodasCartasDealer) {
             for (Carta carta : dealer.getMano()) {
                 JLabel cartaLabel = crearEtiquetaCarta(carta);
-                panelCartas.add(cartaLabel);
+                panelCartasDealer.add(cartaLabel);
             }
         } else {
-            // Muestra solo la primera carta del dealer
-            JLabel cartaLabel = crearEtiquetaCarta(dealer.getMano().get(0)); // Muestra solo la primera carta
-            panelCartas.add(cartaLabel);
-            panelCartas.add(new JLabel("Carta oculta")); // Muestra una etiqueta para la carta oculta
+            // Muestra todas menos la primer carta del dealer
+            for (Carta carta : dealer.getMano()) {
+                if (carta != dealer.getMano().getFirst()) {
+                    JLabel cartaLabel = crearEtiquetaCarta(carta);
+                    panelCartasDealer.add(cartaLabel);
+                } else {
+                    JLabel cartaLabel = crearEtiquetaCarta(Carta.getEmpty());
+                    panelCartasDealer.add(cartaLabel);
+                }
+            }
         }
-        panelCartas.revalidate(); // Vuelve a validar el panel
-        panelCartas.repaint(); // Redibuja el panel
-        lblPuntosDealer.setText("Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
+        panelCartasDealer.revalidate(); // Vuelve a validar el panel
+        panelCartasDealer.repaint(); // Redibuja el panel
+        lblPuntosDealer.setText("Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??")); // Actualizar puntos
     }
 
     private JLabel crearEtiquetaCarta(Carta carta) {
@@ -134,6 +143,7 @@ public class Juego extends JFrame {
                 case "K" -> "king";
                 case "Q" -> "queen";
                 case "J" -> "jack";
+                case "null" -> "backside";
                 default -> carta.getValor();
             };
             String palo = switch (carta.getPalo()) {
@@ -141,6 +151,7 @@ public class Juego extends JFrame {
                 case "Diamantes" -> "diamonds";
                 case "Corazones" -> "hearts";
                 case "Picas" -> "spades";
+                case "null" -> "backside";
                 default -> throw new IllegalStateException("Unexpected value: " + carta.getPalo());
             };
             BufferedImage imagen = ImageIO.read(new File("cards/" + valor + "_of_" + palo + ".png"));
@@ -156,24 +167,25 @@ public class Juego extends JFrame {
         if (mazo.hayCartas()) {
             jugador.agregarCarta(mazo.sacarCarta());
             mostrarCartas();
-            areaTexto.append(jugador.toString() + "\n");
             if (jugador.totalMano() > 21) {
-                areaTexto.append("¡Te has pasado! Has perdido.\n");
+                JOptionPane.showMessageDialog(this, "¡Te pasaste! Perdiste :(");
+                mostrarTodasCartasDealer = true; // Revelar todas las cartas del dealer
+                mostrarCartasDealer(); // Mostrar todas las cartas del dealer
                 btnPedirCarta.setEnabled(false);
                 btnPlantarse.setEnabled(false);
                 btnVolverAJugar.setEnabled(true);
                 detenerMusica();
             }
         } else {
-            areaTexto.append("No quedan cartas en el mazo.\n");
+            JOptionPane.showMessageDialog(this, "No quedan cartas en el mazo.");
         }
     }
 
     private void plantarse() {
-        areaTexto.append(jugador.getNombre() + " se ha plantado con un total de: " + jugador.totalMano() + "\n");
+        JOptionPane.showMessageDialog(this, jugador.getNombre() + " se ha plantado con un total de: " + jugador.totalMano());
+        jugarDealer(); // Llama al dealer para que tome su turno
         mostrarTodasCartasDealer = true; // Revelar todas las cartas del dealer
         mostrarCartasDealer(); // Mostrar todas las cartas del dealer
-        jugarDealer(); // Llama al dealer para que tome su turno
         btnPedirCarta.setEnabled(false);
         btnPlantarse.setEnabled(false);
         btnVolverAJugar.setEnabled(true);
@@ -187,15 +199,15 @@ public class Juego extends JFrame {
             double probabilidadDePasarse = calcularProbabilidadDePasarse(puntosDealer, cartasRestantes);
 
             if (puntosDealer >= 17 && probabilidadDePasarse >= 0.5) {
-                areaTexto.append("Dealer se planta con " + puntosDealer + " puntos.\n");
+                JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
                 break;
             } else if (puntosDealer < 17 || probabilidadDePasarse < 0.5) {
                 dealer.agregarCarta(mazo.sacarCarta());
-                areaTexto.append("Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.\n");
+                JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
                 lblPuntosDealer.setText("Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
 
                 if (dealer.totalMano() > 21) {
-                    areaTexto.append("Dealer se ha pasado con " + dealer.totalMano() + " puntos.\n");
+                    JOptionPane.showMessageDialog(this,"Dealer se ha pasado con " + dealer.totalMano() + " puntos.");
                     break;
                 }
             }
@@ -208,13 +220,21 @@ public class Juego extends JFrame {
         int puntosDealer = dealer.totalMano();
 
         if (puntosJugador > 21) {
-            areaTexto.append("¡Te has pasado! Has perdido.\n");
+            JOptionPane.showMessageDialog(this, "¡Te has pasado! Has perdido.");
+            mostrarTodasCartasDealer = true;
+            mostrarCartasDealer();
         } else if (puntosDealer > 21 || puntosJugador > puntosDealer) {
-            areaTexto.append("¡Felicidades! Ganaste con " + puntosJugador + " puntos.\n");
+            JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos.");
+            mostrarTodasCartasDealer = true;
+            mostrarCartasDealer();
         } else if (puntosJugador < puntosDealer) {
-            areaTexto.append("El dealer gana con " + puntosDealer + " puntos.\n");
+            JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
+            mostrarTodasCartasDealer = true;
+            mostrarCartasDealer();
         } else {
-            areaTexto.append("¡Es un empate! Ambos tienen " + puntosJugador + " puntos.\n");
+            JOptionPane.showMessageDialog(this, "¡Es un empate! Ambos tienen " + puntosJugador + " puntos.");
+            mostrarTodasCartasDealer = true;
+            mostrarCartasDealer();
         }
     }
 
@@ -231,10 +251,19 @@ public class Juego extends JFrame {
     }
 
     private void reiniciarJuego() {
-        jugador = null;
+        String[] options = new String[] {"Si", "No", "Salir"};
+        int response = JOptionPane.showOptionDialog(null, "¿Desea seguir jugando con el mismo usuario?", "BlackJack",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
+                null, options, options[0]);
+        if (response == 1) {
+            jugador = null;
+        }
+        if (response == 2) {
+            System.exit(0);
+        }
         dealer = null;
         panelCartas.removeAll();
-        areaTexto.setText("");
+        mostrarTodasCartasDealer = false;
         lblPuntosJugador.setText("Puntos Jugador: 0");
         lblPuntosDealer.setText("Puntos Dealer: 0");
         btnPedirCarta.setEnabled(true); // Habilitar botón "Pedir Carta"
@@ -245,14 +274,14 @@ public class Juego extends JFrame {
     }
 
 
-    private void reproducirMusica(String ruta) {
+    private void reproducirMusica() {
         try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(ruta));
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("sound.wav"));
             clip = AudioSystem.getClip();
             clip.open(audioInputStream);
             clip.loop(Clip.LOOP_CONTINUOUSLY); // Reproduce en bucle
         } catch (Exception e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, e);
         }
     }
 
