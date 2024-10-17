@@ -3,6 +3,7 @@ import java.awt.*;
 import java.io.File;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -89,7 +90,6 @@ public class Juego extends JFrame {
         jugador.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
-
         mostrarCartas(); // Muestra las cartas del jugador
         mostrarCartasDealer(); // Muestra solo una carta del dealer
         lblPuntosJugador.setText("Puntos Jugador: " + jugador.totalMano());
@@ -97,6 +97,13 @@ public class Juego extends JFrame {
 
         // Iniciar música de fondo
         reproducirMusica();
+        if (jugador.totalMano() == 21) {
+            JOptionPane.showMessageDialog(this, jugador.getNombre() + " ha ganado por BlackJack");
+            reiniciarJuego();
+        } else if (dealer.totalMano() == 21) {
+            JOptionPane.showMessageDialog(this, "Dealer ha ganado por BlackJack");
+            reiniciarJuego();
+        }
     }
 
     private void mostrarCartas() {
@@ -168,7 +175,7 @@ public class Juego extends JFrame {
             jugador.agregarCarta(mazo.sacarCarta());
             mostrarCartas();
             if (jugador.totalMano() > 21) {
-                JOptionPane.showMessageDialog(this, "¡Te pasaste! Perdiste :(");
+                determinarGanador();
                 mostrarTodasCartasDealer = true; // Revelar todas las cartas del dealer
                 mostrarCartasDealer(); // Mostrar todas las cartas del dealer
                 btnPedirCarta.setEnabled(false);
@@ -198,10 +205,13 @@ public class Juego extends JFrame {
             int cartasRestantes = mazo.cartasRestantes();
             double probabilidadDePasarse = calcularProbabilidadDePasarse(puntosDealer, cartasRestantes);
 
-            if (puntosDealer >= 17 && probabilidadDePasarse >= 0.5) {
+            if (puntosDealer == 21 || puntosDealer == 20) {
                 JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
                 break;
-            } else if (puntosDealer < 17 || probabilidadDePasarse < 0.5) {
+            } else if (puntosDealer >= 17 && probabilidadDePasarse >= 0.48) {
+                JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
+                break;
+            } else if (puntosDealer < 17 || probabilidadDePasarse < 0.48) {
                 dealer.agregarCarta(mazo.sacarCarta());
                 mostrarCartasDealer(); // Redibujar cada que el dealer juegue
                 JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
@@ -219,12 +229,18 @@ public class Juego extends JFrame {
     private void determinarGanador() {
         int puntosJugador = jugador.totalMano();
         int puntosDealer = dealer.totalMano();
-
-        if (puntosJugador > 21) {
-            JOptionPane.showMessageDialog(this, "¡Te has pasado! Has perdido.");
+        if (puntosDealer > 21 && puntosJugador > 21) {
+            boolean empate = puntosDealer == puntosJugador;
+            if (empate) {JOptionPane.showMessageDialog(this, "¡Es un empate! Ambos tienen " + puntosJugador + " puntos y se pasaron.");}
+            boolean ganoJugador = puntosDealer > puntosJugador;
+            if (ganoJugador) {
+                JOptionPane.showMessageDialog(this, "Ambos se pasaron, aunque ganó el jugador por cercanía a 21");
+            } else {
+                JOptionPane.showMessageDialog(this, "Ambos se pasaron, aunque ganó el dealer por cercanía a 21");
+            }
             mostrarTodasCartasDealer = true;
             mostrarCartasDealer();
-        } else if (puntosDealer > 21 || puntosJugador > puntosDealer) {
+        } else if (puntosDealer > 21 || puntosJugador > puntosDealer && puntosJugador <= 21) {
             JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos.");
             mostrarTodasCartasDealer = true;
             mostrarCartasDealer();
@@ -232,27 +248,46 @@ public class Juego extends JFrame {
             JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
             mostrarTodasCartasDealer = true;
             mostrarCartasDealer();
-        } else {
+        } else if (puntosDealer == puntosJugador) {
             JOptionPane.showMessageDialog(this, "¡Es un empate! Ambos tienen " + puntosJugador + " puntos.");
             mostrarTodasCartasDealer = true;
             mostrarCartasDealer();
+        } else if (puntosJugador > 21 && puntosDealer < 21) {
+            JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
+            mostrarTodasCartasDealer = true;
+            mostrarCartasDealer();
+        }
+        else {
+            JOptionPane.showMessageDialog(this, "Puntos dealer " + puntosDealer + "\nPuntos Jugador: " + puntosJugador);
         }
     }
 
     private double calcularProbabilidadDePasarse(int puntosDealer, int cartasRestantes) {
-        if (cartasRestantes == 0) return 0.0; // Evita división por cero
+        // Verificar condiciones especiales
+        if (puntosDealer >= 21) return 1.0; // El dealer ya está en o por encima de 21, se va a pasar.
+        if (cartasRestantes == 0) return 0.0; // Evita división por cero si no hay cartas restantes.
 
         // Cartas que podrían hacer que el dealer se pase
         int cartasQueHacenPasarse = 0;
 
+        // Optimizar obteniendo las cartas restantes solo una vez
+        ArrayList<Carta> cartasRestantesMazo = mazo.getCartasRestantes();
+
         // Contamos las cartas que harán que el dealer se pase
-        for (Carta carta : mazo.getCartasRestantes()) {
-            if (puntosDealer + carta.valorEnPuntos() > 21) {
+        for (Carta carta : cartasRestantesMazo) {
+            int valorCarta = carta.valorEnPuntos();
+
+            // Ajustar para As, si es necesario
+            if (carta.getValor().equals("A") && puntosDealer + 11 > 21) {
+                valorCarta = 1; // Si agregar 11 pasa al dealer, el As cuenta como 1.
+            }
+
+            if (puntosDealer + valorCarta > 21) {
                 cartasQueHacenPasarse++;
             }
         }
-
-        return (double) cartasQueHacenPasarse / cartasRestantes; // Retorna probabilidad
+        double probablidad = (double) cartasQueHacenPasarse / cartasRestantesMazo.size();
+        return  probablidad; // Retorna la probabilidad
     }
 
 
