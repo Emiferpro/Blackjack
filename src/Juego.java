@@ -16,16 +16,21 @@ public class Juego extends JFrame {
     private final JButton btnPedirCarta;
     private final JButton btnPlantarse;
     private final JButton btnVolverAJugar;
+    private final JButton btnFold;
+    private final JButton btnDouble;
+    private final JButton btnSeguro;
     private final JPanel panelCartasDealer;
     private final JPanel panelCartas;
     private final JLabel lblPuntosJugador;
     private final JLabel lblPuntosDealer;
+    private final JLabel lblMoneyJugador;
+    private final JLabel lblMoneyDealer;
     private boolean mostrarTodasCartasDealer = false; // Para controlar la visualización de las cartas del dealer
     private Clip clip;
 
     public Juego() {
         setTitle("Blackjack");
-        setSize(600, 450);
+        setSize(800, 450);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -42,27 +47,45 @@ public class Juego extends JFrame {
         panelCartas.setBorder(BorderFactory.createTitledBorder("Jugador")); // Añadir borde con título
         add(panelCartas, BorderLayout.CENTER); // Agregar el panel del jugador en el centro
         // Panel de botones
-        JPanel panelBotones = new JPanel();
+        JPanel combinedPanel = new JPanel();
         btnPedirCarta = new JButton("Pedir Carta");
         btnPlantarse = new JButton("Plantarse");
         btnVolverAJugar = new JButton("Volver a Jugar");
+        btnFold = new JButton("Fold");
+        btnDouble = new JButton("Duplicar");
+        btnSeguro = new JButton("Seguro");
         btnVolverAJugar.setEnabled(false); // Desactivar al inicio
+        lblPuntosJugador = new JLabel(" Puntos Jugador: 0");
+        lblPuntosDealer = new JLabel(" Puntos Dealer: 0");
+        lblMoneyJugador = new JLabel(" Dinero del Jugador: 0");
+        lblMoneyDealer = new JLabel(" Dinero del Dealer: 0");
+        combinedPanel.setLayout(new GridLayout(2, 7)); // 2 rows, 3 columns
+        combinedPanel.add(btnPedirCarta);
+        combinedPanel.add(btnPlantarse);
+        combinedPanel.add(btnVolverAJugar);
+        combinedPanel.add(lblPuntosJugador);
+        combinedPanel.add(lblPuntosDealer);
+        combinedPanel.add(btnFold);
+        combinedPanel.add(btnDouble);
+        combinedPanel.add(btnSeguro);
+        combinedPanel.add(lblMoneyJugador);
+        combinedPanel.add(lblMoneyDealer);
+        add(combinedPanel, BorderLayout.SOUTH);
 
-        panelBotones.add(btnPedirCarta);
-        panelBotones.add(btnPlantarse);
-        panelBotones.add(btnVolverAJugar);
-        add(panelBotones, BorderLayout.SOUTH);
-
-        // Etiquetas para mostrar puntos
-        lblPuntosJugador = new JLabel("Puntos Jugador: 0");
-        lblPuntosDealer = new JLabel("Puntos Dealer: 0");
-        panelBotones.add(lblPuntosJugador);
-        panelBotones.add(lblPuntosDealer);
 
         // Eventos de botones
         btnPedirCarta.addActionListener(_ -> pedirCarta());
         btnPlantarse.addActionListener(_ -> plantarse());
         btnVolverAJugar.addActionListener(_ -> reiniciarJuego());
+        btnDouble.addActionListener(_ -> {
+            JOptionPane.showMessageDialog(this, "No implementado");
+        });
+        btnSeguro.addActionListener(_ -> {
+            JOptionPane.showMessageDialog(this, "No implementado");
+        });
+        btnFold.addActionListener(_ -> {
+            JOptionPane.showMessageDialog(this, "No implementado");
+        });
 
         // Inicializa el juego
         mostrarMenuInicio();
@@ -92,9 +115,10 @@ public class Juego extends JFrame {
         dealer.agregarCarta(mazo.sacarCarta());
         mostrarCartas(); // Muestra las cartas del jugador
         mostrarCartasDealer(); // Muestra solo una carta del dealer
-        lblPuntosJugador.setText("Puntos Jugador: " + jugador.totalMano());
-        lblPuntosDealer.setText("Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??"));
-
+        lblPuntosJugador.setText(" Puntos Jugador: " + jugador.totalMano());
+        lblPuntosDealer.setText(" Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??"));
+        lblMoneyDealer.setText(" Dinero del Dealer: " + dealer.getDinero());
+        lblMoneyJugador.setText(" Dinero del Jugador: " + jugador.getDinero());
         // Iniciar música de fondo
         reproducirMusica();
         if (jugador.totalMano() == 21) {
@@ -114,7 +138,7 @@ public class Juego extends JFrame {
         }
         panelCartas.revalidate(); // Vuelve a validar el panel
         panelCartas.repaint(); // Redibuja el panel
-        lblPuntosJugador.setText("Puntos Jugador: " + jugador.totalMano()); // Actualizar puntos
+        lblPuntosJugador.setText(" Puntos Jugador: " + jugador.totalMano()); // Actualizar puntos
     }
 
     private void mostrarCartasDealer() {
@@ -138,7 +162,7 @@ public class Juego extends JFrame {
         }
         panelCartasDealer.revalidate(); // Vuelve a validar el panel
         panelCartasDealer.repaint(); // Redibuja el panel
-        lblPuntosDealer.setText("Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??")); // Actualizar puntos
+        lblPuntosDealer.setText(" Puntos Dealer: " + (mostrarTodasCartasDealer ? dealer.totalMano() : "??")); // Actualizar puntos
     }
 
     private JLabel crearEtiquetaCarta(Carta carta) {
@@ -200,31 +224,43 @@ public class Juego extends JFrame {
     }
 
     private void jugarDealer() {
+        // Inicia el turno del dealer y actualiza el estado de la apuesta
         while (true) {
+            int dealerMoney = dealer.getDinero();
             int puntosDealer = dealer.totalMano();
             int cartasRestantes = mazo.cartasRestantes();
             double probabilidadDePasarse = calcularProbabilidadDePasarse(puntosDealer, cartasRestantes);
 
+            // Condición para plantarse si el dealer tiene 20 o 21
             if (puntosDealer == 21 || puntosDealer == 20) {
                 JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
                 break;
-            } else if (puntosDealer >= 17 && probabilidadDePasarse >= 0.48) {
+            }
+            // Condición para plantarse si la probabilidad de pasarse es alta y tiene más de 17 puntos
+            else if (puntosDealer >= 17 && probabilidadDePasarse >= 0.48) {
                 JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
                 break;
-            } else if (puntosDealer < 17 || probabilidadDePasarse < 0.48) {
+            }
+            // Si el dealer tiene menos de 17 puntos y la probabilidad de pasarse es baja, pide una carta
+            else if (puntosDealer < 17 && probabilidadDePasarse < 0.48) {
                 dealer.agregarCarta(mazo.sacarCarta());
                 mostrarCartasDealer(); // Redibujar cada que el dealer juegue
                 JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
-                lblPuntosDealer.setText("Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
+                lblPuntosDealer.setText(" Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
 
+                // Si el dealer se pasa de 21, finaliza el turno
                 if (dealer.totalMano() > 21) {
                     JOptionPane.showMessageDialog(this,"Dealer se ha pasado con " + dealer.totalMano() + " puntos.");
                     break;
                 }
             }
         }
-        determinarGanador(); // Determinar ganador al final del turno del dealer
+
+        // Determina el ganador y realiza la gestión de las apuestas
+        determinarGanador();
     }
+
+
 
     private void determinarGanador() {
         int puntosJugador = jugador.totalMano();
@@ -305,8 +341,8 @@ public class Juego extends JFrame {
         dealer = null;
         panelCartas.removeAll();
         mostrarTodasCartasDealer = false;
-        lblPuntosJugador.setText("Puntos Jugador: 0");
-        lblPuntosDealer.setText("Puntos Dealer: 0");
+        lblPuntosJugador.setText(" Puntos Jugador: 0");
+        lblPuntosDealer.setText(" Puntos Dealer: 0");
         btnPedirCarta.setEnabled(true); // Habilitar botón "Pedir Carta"
         btnPlantarse.setEnabled(true); // Habilitar botón "Plantarse"
         btnVolverAJugar.setEnabled(false);
