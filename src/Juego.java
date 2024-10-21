@@ -4,6 +4,7 @@ import java.io.File;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Objects;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -26,6 +27,7 @@ public class Juego extends JFrame {
     private final JLabel lblMoneyJugador;
     private final JLabel lblMoneyDealer;
     private boolean mostrarTodasCartasDealer = false; // Para controlar la visualización de las cartas del dealer
+    private boolean habilitarSeguro;
     private Clip clip;
 
     public Juego() {
@@ -37,7 +39,7 @@ public class Juego extends JFrame {
 
         // Panel para mostrar cartas del dealer
         panelCartasDealer = new JPanel();
-        panelCartasDealer.setLayout(new FlowLayout());  // Puedes cambiar el layout si lo deseas
+        panelCartasDealer.setLayout(new FlowLayout());
         panelCartasDealer.setBorder(BorderFactory.createTitledBorder("Dealer")); // Añadir borde con título
         add(panelCartasDealer, BorderLayout.NORTH); // Agregar el panel del dealer en la parte superior
 
@@ -80,9 +82,7 @@ public class Juego extends JFrame {
         btnDouble.addActionListener(_ -> {
             JOptionPane.showMessageDialog(this, "No implementado");
         });
-        btnSeguro.addActionListener(_ -> {
-            JOptionPane.showMessageDialog(this, "No implementado");
-        });
+        btnSeguro.addActionListener(_ -> seguro());
         btnFold.addActionListener(_ -> {
             JOptionPane.showMessageDialog(this, "No implementado");
         });
@@ -107,12 +107,24 @@ public class Juego extends JFrame {
 
     private void iniciarJuego() {
         mazo = new Mazo();
-
+        habilitarSeguro = true;
         // Reparte dos cartas al jugador y al dealer
         jugador.agregarCarta(mazo.sacarCarta());
         jugador.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
+        dealer.setApuesta((int) (dealer.getDinero() * 0.10));
+        try {
+            int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta"));
+            if (apuesta <= jugador.getDinero()) {
+                jugador.setApuesta(apuesta);
+            } else {
+                JOptionPane.showMessageDialog(this, "Vuelve a intentarlo con un valor menor, ¿o quieres endeudarte?");
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Tienes que ingresar un numero. ¿O quieres apostar tu casa?");
+            iniciarJuego();
+        }
         mostrarCartas(); // Muestra las cartas del jugador
         mostrarCartasDealer(); // Muestra solo una carta del dealer
         lblPuntosJugador.setText(" Puntos Jugador: " + jugador.totalMano());
@@ -123,11 +135,11 @@ public class Juego extends JFrame {
         reproducirMusica();
         if (jugador.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, jugador.getNombre() + " ha ganado por BlackJack");
+            jugador.sumarDinero(jugador.getApuesta() * 2);
             reiniciarJuego();
-        } else if (dealer.totalMano() == 21) {
-            JOptionPane.showMessageDialog(this, "Dealer ha ganado por BlackJack");
-            reiniciarJuego();
-        }
+        } else if (jugador.totalMano() == 21 && dealer.totalMano() == 21) {
+            JOptionPane.showMessageDialog(this, "Empate por BlackJack");
+        };
     }
 
     private void mostrarCartas() {
@@ -195,6 +207,12 @@ public class Juego extends JFrame {
     }
 
     private void pedirCarta() {
+        if (dealer.totalMano() == 21) {
+            JOptionPane.showMessageDialog(this, "El dealer gana por blackjack.");
+            reiniciarJuego();
+        }
+        habilitarSeguro = false;
+        btnSeguro.setEnabled(false);
         if (mazo.hayCartas()) {
             jugador.agregarCarta(mazo.sacarCarta());
             mostrarCartas();
@@ -213,6 +231,12 @@ public class Juego extends JFrame {
     }
 
     private void plantarse() {
+        if (dealer.totalMano() == 21) {
+            JOptionPane.showMessageDialog(this, "El dealer gana por blackjack.");
+            reiniciarJuego();
+        }
+        habilitarSeguro = false;
+        btnSeguro.setEnabled(false);
         JOptionPane.showMessageDialog(this, jugador.getNombre() + " se ha plantado con un total de: " + jugador.totalMano());
         jugarDealer(); // Llama al dealer para que tome su turno
         mostrarTodasCartasDealer = true; // Revelar todas las cartas del dealer
@@ -221,6 +245,47 @@ public class Juego extends JFrame {
         btnPlantarse.setEnabled(false);
         btnVolverAJugar.setEnabled(true);
         detenerMusica();
+    }
+
+    private void seguro() {
+        Carta carta = dealer.getMano().getLast();
+        String valor = switch (carta.getValor()) {
+            case "A" -> "ace";
+            case "K" -> "king";
+            case "Q" -> "queen";
+            case "J" -> "jack";
+            case "null" -> "backside";
+            default -> carta.getValor();
+        };
+        String palo = switch (carta.getPalo()) {
+            case "Tréboles" -> "clubs";
+            case "Diamantes" -> "diamonds";
+            case "Corazones" -> "hearts";
+            case "Picas" -> "spades";
+            case "null" -> "backside";
+            default -> throw new IllegalStateException("Unexpected value: " + carta.getPalo());
+        };
+        if (Objects.equals(valor, "ace")) {
+            try {
+                int apuesta = jugador.getApuesta() / 2;
+                if (apuesta != 0 && apuesta <= jugador.getDinero()) {
+                    if (dealer.totalMano() == 21 && habilitarSeguro) {
+                        JOptionPane.showMessageDialog(this, "Ganaste la apuesta, cobraste " + apuesta * 2);
+                        jugador.sumarDinero(apuesta * 2);
+                        JOptionPane.showMessageDialog(this, "El dealer gana por blackjack");
+                    } else {
+                        JOptionPane.showMessageDialog(this, "El dealer no tiene blackjack, perdiste " + apuesta);
+                        jugador.restarDinero(apuesta);
+                        habilitarSeguro = false;
+                        btnSeguro.setEnabled(false);
+                    }
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Error, debes ingresar un numero. A menos de que quieras apostar tu casa...");
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "No puedes usar el seguro si el dealer no tiene un ace visible");
+        }
     }
 
     private void jugarDealer() {
@@ -345,6 +410,7 @@ public class Juego extends JFrame {
         lblPuntosDealer.setText(" Puntos Dealer: 0");
         btnPedirCarta.setEnabled(true); // Habilitar botón "Pedir Carta"
         btnPlantarse.setEnabled(true); // Habilitar botón "Plantarse"
+        btnSeguro.setEnabled(true); // Habilitar boton "Seguro"
         btnVolverAJugar.setEnabled(false);
         mostrarMenuInicio();
         detenerMusica();
