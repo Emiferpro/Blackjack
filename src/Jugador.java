@@ -17,6 +17,7 @@ public class Jugador {
     }
     public void setApuesta(int ap) {
         this.apuesta = ap;
+        this.dinero -= ap;
     }
 
     public void agregarCarta(Carta carta) {

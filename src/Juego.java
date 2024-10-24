@@ -120,6 +120,7 @@ public class Juego extends JFrame {
                 jugador.setApuesta(apuesta);
             } else {
                 JOptionPane.showMessageDialog(this, "Vuelve a intentarlo con un valor menor, ¿o quieres endeudarte?");
+                iniciarJuego();
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Tienes que ingresar un numero. ¿O quieres apostar tu casa?");
@@ -133,13 +134,20 @@ public class Juego extends JFrame {
         lblMoneyJugador.setText(" Dinero del Jugador: " + jugador.getDinero());
         // Iniciar música de fondo
         reproducirMusica();
+        refreshBets();
         if (jugador.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, jugador.getNombre() + " ha ganado por BlackJack");
             jugador.sumarDinero(jugador.getApuesta() * 2);
             reiniciarJuego();
         } else if (jugador.totalMano() == 21 && dealer.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, "Empate por BlackJack");
-        };
+        }
+        ;
+    }
+
+    private void refreshBets() {
+        lblMoneyJugador.setText(" Dinero del Jugador: " + (jugador.getDinero() - jugador.getApuesta()));
+        lblMoneyDealer.setText(" Dinero del Dealer: " + (dealer.getDinero() - dealer.getApuesta()));
     }
 
     private void mostrarCartas() {
@@ -298,12 +306,12 @@ public class Juego extends JFrame {
 
             // Condición para plantarse si el dealer tiene 20 o 21
             if (puntosDealer == 21 || puntosDealer == 20) {
-                JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
+                JOptionPane.showMessageDialog(this, "Dealer se planta con " + puntosDealer + " puntos.");
                 break;
             }
             // Condición para plantarse si la probabilidad de pasarse es alta y tiene más de 17 puntos
             else if (puntosDealer >= 17 && probabilidadDePasarse >= 0.48) {
-                JOptionPane.showMessageDialog(this ,"Dealer se planta con " + puntosDealer + " puntos.");
+                JOptionPane.showMessageDialog(this, "Dealer se planta con " + puntosDealer + " puntos.");
                 break;
             }
             // Si el dealer tiene menos de 17 puntos y la probabilidad de pasarse es baja, pide una carta
@@ -315,7 +323,7 @@ public class Juego extends JFrame {
 
                 // Si el dealer se pasa de 21, finaliza el turno
                 if (dealer.totalMano() > 21) {
-                    JOptionPane.showMessageDialog(this,"Dealer se ha pasado con " + dealer.totalMano() + " puntos.");
+                    JOptionPane.showMessageDialog(this, "Dealer se ha pasado con " + dealer.totalMano() + " puntos.");
                     break;
                 }
             }
@@ -326,41 +334,42 @@ public class Juego extends JFrame {
     }
 
 
-
     private void determinarGanador() {
         int puntosJugador = jugador.totalMano();
         int puntosDealer = dealer.totalMano();
-        if (puntosDealer > 21 && puntosJugador > 21) {
-            boolean empate = puntosDealer == puntosJugador;
-            if (empate) {JOptionPane.showMessageDialog(this, "¡Es un empate! Ambos tienen " + puntosJugador + " puntos y se pasaron.");}
-            boolean ganoJugador = puntosDealer > puntosJugador;
-            if (ganoJugador) {
-                JOptionPane.showMessageDialog(this, "Ambos se pasaron, aunque ganó el jugador por cercanía a 21");
+        int apuesta = jugador.getApuesta();
+        int apuestaDealer = dealer.getApuesta();
+        if (puntosDealer > 21 && puntosJugador <= 21) {
+            // Gana el jugador
+            if (puntosJugador == 21 && jugador.getMano().size() == 2) {
+                // Gana con Blackjack (paga 3:2)
+                int ganancia = (int) (apuesta * 1.5); // Pago 3:2
+                dealer.restarDinero(apuestaDealer);
+                jugador.sumarDinero(ganancia + apuesta);
+                JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con Blackjack y ganas " + ganancia);
             } else {
-                JOptionPane.showMessageDialog(this, "Ambos se pasaron, aunque ganó el dealer por cercanía a 21");
+                // Gana de forma normal
+                dealer.restarDinero(apuestaDealer);
+                jugador.sumarDinero(apuesta * 2); // Recupera su apuesta + ganancia igual a la apuesta
+                JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos y ganas " + apuesta);
             }
-            mostrarTodasCartasDealer = true;
-            mostrarCartasDealer();
-        } else if (puntosDealer > 21 || puntosJugador > puntosDealer && puntosJugador <= 21) {
-            JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos.");
-            mostrarTodasCartasDealer = true;
-            mostrarCartasDealer();
-        } else if (puntosJugador < puntosDealer) {
+        } else if (puntosJugador <= 21 && puntosJugador > puntosDealer) {
+            // Gana el jugador de forma normal
+            jugador.sumarDinero(apuesta * 2); // Recupera su apuesta + ganancia igual a la apuesta
+            dealer.restarDinero(apuestaDealer);
+            JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos y ganas " + apuesta);
+        } else if (puntosJugador == puntosDealer) {
+            // Empate, no se modifica el dinero
+            JOptionPane.showMessageDialog(this, "Es un empate. Recuperas tu apuesta.");
+        } else {
+            // Gana el dealer o se pasa el jugador
             JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
-            mostrarTodasCartasDealer = true;
-            mostrarCartasDealer();
-        } else if (puntosDealer == puntosJugador) {
-            JOptionPane.showMessageDialog(this, "¡Es un empate! Ambos tienen " + puntosJugador + " puntos.");
-            mostrarTodasCartasDealer = true;
-            mostrarCartasDealer();
-        } else if (puntosJugador > 21 && puntosDealer < 21) {
-            JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
-            mostrarTodasCartasDealer = true;
-            mostrarCartasDealer();
+            dealer.sumarDinero(apuestaDealer * 2);
         }
-        else {
-            JOptionPane.showMessageDialog(this, "Puntos dealer " + puntosDealer + "\nPuntos Jugador: " + puntosJugador);
-        }
+
+        mostrarTodasCartasDealer = true;
+        mostrarCartasDealer();
+
     }
 
     private double calcularProbabilidadDePasarse(int puntosDealer, int cartasRestantes) {
@@ -388,12 +397,12 @@ public class Juego extends JFrame {
             }
         }
         double probablidad = (double) cartasQueHacenPasarse / cartasRestantesMazo.size();
-        return  probablidad; // Retorna la probabilidad
+        return probablidad; // Retorna la probabilidad
     }
 
 
     private void reiniciarJuego() {
-        String[] options = new String[] {"Si", "No", "Salir"};
+        String[] options = new String[]{"Si", "No", "Salir"};
         int response = JOptionPane.showOptionDialog(null, "¿Desea seguir jugando con el mismo usuario?", "BlackJack",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
                 null, options, options[0]);
