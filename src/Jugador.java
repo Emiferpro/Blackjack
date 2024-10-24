@@ -12,12 +12,19 @@ public class Jugador {
         apuesta = 0;
     }
 
+    public Jugador(String nombre, int money) {
+        this.nombre = nombre;
+        mano = new ArrayList<>();
+        dinero = money; // Dinero inicial
+        apuesta = 0;
+    }
+
     public int getApuesta() {
         return apuesta;
     }
     public void setApuesta(int ap) {
         this.apuesta = ap;
-        this.dinero -= ap;
+        this.dinero = dinero - apuesta;
     }
 
     public void agregarCarta(Carta carta) {

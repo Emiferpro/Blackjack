@@ -5,6 +5,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Random;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -96,7 +97,7 @@ public class Juego extends JFrame {
             nombreJugador = JOptionPane.showInputDialog("Introduce tu nombre:");
         }
         if (nombreJugador != null && !nombreJugador.isEmpty()) {
-            jugador = new Jugador(nombreJugador);
+            jugador = new Jugador(nombreJugador, jugador != null ? jugador.getDinero() : 100);
             panelCartas.setBorder(BorderFactory.createTitledBorder(nombreJugador));
             dealer = new Jugador("Dealer"); // Inicializa al dealer
             iniciarJuego();
@@ -113,18 +114,21 @@ public class Juego extends JFrame {
         jugador.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
         dealer.agregarCarta(mazo.sacarCarta());
-        dealer.setApuesta((int) (dealer.getDinero() * 0.10));
-        try {
-            int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta"));
-            if (apuesta <= jugador.getDinero()) {
-                jugador.setApuesta(apuesta);
-            } else {
-                JOptionPane.showMessageDialog(this, "Vuelve a intentarlo con un valor menor, ¿o quieres endeudarte?");
-                iniciarJuego();
+        Random rn = new Random();
+        dealer.setApuesta((int) (dealer.getDinero() * rn.nextDouble(0.5)));
+        boolean betSet = false;
+        while (!betSet) {
+            try {
+                int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta"));
+                if (apuesta <= jugador.getDinero()) {
+                    jugador.setApuesta(apuesta);
+                    betSet = true;
+                } else {
+                    JOptionPane.showMessageDialog(this, "Vuelve a intentarlo con un valor menor, ¿o quieres endeudarte?");
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Tienes que ingresar un numero. ¿O quieres apostar tu casa?");
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Tienes que ingresar un numero. ¿O quieres apostar tu casa?");
-            iniciarJuego();
         }
         mostrarCartas(); // Muestra las cartas del jugador
         mostrarCartasDealer(); // Muestra solo una carta del dealer
@@ -138,6 +142,7 @@ public class Juego extends JFrame {
         if (jugador.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, jugador.getNombre() + " ha ganado por BlackJack");
             jugador.sumarDinero(jugador.getApuesta() * 2);
+            refreshBets();
             reiniciarJuego();
         } else if (jugador.totalMano() == 21 && dealer.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, "Empate por BlackJack");
@@ -146,8 +151,8 @@ public class Juego extends JFrame {
     }
 
     private void refreshBets() {
-        lblMoneyJugador.setText(" Dinero del Jugador: " + (jugador.getDinero() - jugador.getApuesta()));
-        lblMoneyDealer.setText(" Dinero del Dealer: " + (dealer.getDinero() - dealer.getApuesta()));
+        lblMoneyJugador.setText(" Dinero del Jugador: " + (jugador.getDinero()));
+        lblMoneyDealer.setText(" Dinero del Dealer: " + (dealer.getDinero()));
     }
 
     private void mostrarCartas() {
@@ -274,24 +279,32 @@ public class Juego extends JFrame {
             default -> throw new IllegalStateException("Unexpected value: " + carta.getPalo());
         };
         if (Objects.equals(valor, "ace")) {
-            try {
-                int apuesta = jugador.getApuesta() / 2;
-                if (apuesta != 0 && apuesta <= jugador.getDinero()) {
-                    if (dealer.totalMano() == 21 && habilitarSeguro) {
-                        JOptionPane.showMessageDialog(this, "Ganaste la apuesta, cobraste " + apuesta * 2);
-                        jugador.sumarDinero(apuesta * 2);
-                        JOptionPane.showMessageDialog(this, "El dealer gana por blackjack");
+            boolean success = false;
+            while (!success) {
+                try {
+                    int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingrese el valor de apuesta: "));
+                    if (apuesta != 0 && apuesta <= jugador.getDinero()) {
+                        success = true;
+                        if (dealer.totalMano() == 21 && habilitarSeguro) {
+                            JOptionPane.showMessageDialog(this, "Ganaste la apuesta, cobraste " + apuesta * 2);
+                            jugador.sumarDinero(apuesta * 2);
+                            JOptionPane.showMessageDialog(this, "El dealer gana por blackjack");
+                            refreshBets();
+                        } else {
+                            JOptionPane.showMessageDialog(this, "El dealer no tiene blackjack, perdiste " + apuesta);
+                            jugador.restarDinero(apuesta);
+                            habilitarSeguro = false;
+                            btnSeguro.setEnabled(false);
+                            refreshBets();
+                        }
                     } else {
-                        JOptionPane.showMessageDialog(this, "El dealer no tiene blackjack, perdiste " + apuesta);
-                        jugador.restarDinero(apuesta);
-                        habilitarSeguro = false;
-                        btnSeguro.setEnabled(false);
+                        JOptionPane.showMessageDialog(this, "Error. Apuesta inválida.");
                     }
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(this, "Error, debes ingresar un numero. A menos de que quieras apostar tu casa...");
                 }
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Error, debes ingresar un numero. A menos de que quieras apostar tu casa...");
             }
-        } else {
+        } else{
             JOptionPane.showMessageDialog(this, "No puedes usar el seguro si el dealer no tiene un ace visible");
         }
     }
@@ -315,7 +328,18 @@ public class Juego extends JFrame {
                 break;
             }
             // Si el dealer tiene menos de 17 puntos y la probabilidad de pasarse es baja, pide una carta
-            else if (puntosDealer < 17 && probabilidadDePasarse < 0.48) {
+            else if (puntosDealer < 17 && probabilidadDePasarse < 0.54) {
+                dealer.agregarCarta(mazo.sacarCarta());
+                mostrarCartasDealer(); // Redibujar cada que el dealer juegue
+                JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
+                lblPuntosDealer.setText(" Puntos Dealer: " + dealer.totalMano()); // Actualizar puntos
+
+                // Si el dealer se pasa de 21, finaliza el turno
+                if (dealer.totalMano() > 21) {
+                    JOptionPane.showMessageDialog(this, "Dealer se ha pasado con " + dealer.totalMano() + " puntos.");
+                    break;
+                }
+            } else {
                 dealer.agregarCarta(mazo.sacarCarta());
                 mostrarCartasDealer(); // Redibujar cada que el dealer juegue
                 JOptionPane.showMessageDialog(this, "Dealer pide una carta. Ahora tiene: " + dealer.totalMano() + " puntos.");
@@ -369,6 +393,7 @@ public class Juego extends JFrame {
 
         mostrarTodasCartasDealer = true;
         mostrarCartasDealer();
+        refreshBets();
 
     }
 
@@ -441,6 +466,10 @@ public class Juego extends JFrame {
         if (clip != null && clip.isRunning()) {
             clip.stop();
         }
+    }
+
+    private void fold() {
+
     }
 
     public static void main(String[] args) {
