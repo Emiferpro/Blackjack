@@ -120,9 +120,14 @@ public class Juego extends JFrame {
         while (!betSet) {
             try {
                 int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta"));
-                if (apuesta <= jugador.getDinero()) {
+                if (jugador.getDinero() <= 0) {
+                    JOptionPane.showMessageDialog(this, "Sin plata no vas a llegar muy lejos");
+                    gameOver();
+                } else if (apuesta <= jugador.getDinero()) {
                     jugador.setApuesta(apuesta);
                     betSet = true;
+                } else if (apuesta == 0) {
+                    JOptionPane.showMessageDialog(this, "Si no apuestas no hay diversión");
                 } else {
                     JOptionPane.showMessageDialog(this, "Vuelve a intentarlo con un valor menor, ¿o quieres endeudarte?");
                 }
@@ -147,7 +152,12 @@ public class Juego extends JFrame {
         } else if (jugador.totalMano() == 21 && dealer.totalMano() == 21) {
             JOptionPane.showMessageDialog(this, "Empate por BlackJack");
         }
-        ;
+    }
+
+    private void gameOver() {
+        setVisible(false);
+        JOptionPane.showMessageDialog(null, "Te quedaste sin plata. Perdiste.");
+        System.exit(0);
     }
 
     private void refreshBets() {
