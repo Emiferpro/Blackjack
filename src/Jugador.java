@@ -7,11 +7,27 @@ public class Jugador {
     private String nombre;
     private ArrayList<Carta> mano;
     private int dinero; // Dinero del jugador
-
+    private int apuesta;
     public Jugador(String nombre) {
         this.nombre = nombre;
         mano = new ArrayList<>();
         dinero = 100; // Dinero inicial
+        apuesta = 0;
+    }
+
+    public Jugador(String nombre, int money) {
+        this.nombre = nombre;
+        mano = new ArrayList<>();
+        dinero = money; // Dinero inicial
+        apuesta = 0;
+    }
+
+    public int getApuesta() {
+        return apuesta;
+    }
+    public void setApuesta(int ap) {
+        this.apuesta = ap;
+        this.dinero = dinero - apuesta;
     }
 
     public void agregarCarta(Carta carta) {
