@@ -1,165 +1,117 @@
 import javax.swing.*;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
+import java.io.*;
 import java.util.ArrayList;
 
 public class Servidor extends Thread {
-    private ArrayList<ClientInfo> jugadores;
     private ServerSocket serverSocket;
-    private DataInputStream dataInputStream;
-    private DataOutputStream writer;
-    private Protocol protocol;
-    private Mazo mazo;
+    private Socket clientSocket;
+    private PrintWriter out;
+    private BufferedReader in;
+
     public Servidor() {
-        jugadores = new ArrayList<>();
-        protocol = new Protocol();
-        mazo = new Mazo();
         try {
-            serverSocket=new ServerSocket(Integer.parseInt(JOptionPane.showInputDialog("Ingrese el puerto que desee usar para el servidor")));
-        } catch (IOException ex) {
-            ex.printStackTrace();
+            serverSocket = new ServerSocket(Integer.parseInt(JOptionPane.showInputDialog("Ingresa un puerto para el servidor:")));
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Oops. Ocurrió un error.");
         }
     }
-
-    public void run() {
-        Socket clientSocket = null;
-        while (true) {
-            try {
+    public void start() {
+        try {
+            while (!serverSocket.isClosed()) {
                 clientSocket = serverSocket.accept();
-            } catch (IOException ex) {
-                ex.printStackTrace();
+                System.out.println(clientSocket.getInetAddress().getHostAddress() + " Connected");
+                ClientHandler clientHandler = new ClientHandler(clientSocket);
             }
-            String sentence = "";
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Oops. Ocurrió un error.");
+        }
+    }
+    public void closeServerSocket() {
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class ClientHandler implements Runnable {
+        public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
+        private Socket socket;
+        private BufferedReader bufferedReader;
+        private BufferedWriter bufferedWriter;
+        private String clientUserName;
+
+
+        public ClientHandler(Socket socket) {
             try {
-                dataInputStream = new DataInputStream(clientSocket.getInputStream());
-            } catch (IOException ex) {
-                ex.printStackTrace();
+                this.socket = socket;
+                this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                this.clientUserName = bufferedReader.readLine();
+                clientHandlers.add(this);
+                broadCastMessage("SERVER: " + clientUserName + " has joined the game!");
+            } catch (IOException e) {
+                closeAll(socket, bufferedReader, bufferedWriter);
             }
-            try {
-                sentence = dataInputStream.readUTF();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            if (sentence.startsWith("CONNECT")) {
-                String pname = sentence.split(";")[1];
-                try {
-                    writer = new DataOutputStream(clientSocket.getOutputStream());
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                sendToClient(protocol.IDPacket(jugadores.size() + 1));
-                try {
-                    BroadCastMessage(protocol.NewPlayerPacket(jugadores.size() + 1, pname));
-                    sendAllClients(writer, pname);
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                jugadores.add(new ClientInfo(writer, pname));
-            }
-        }
-    }
-
-    public void BroadCastMessage(String mess) throws IOException
-    {
-        for(int i=0; i < jugadores.size();i++)
-        {
-            if(jugadores.get(i)!=null)
-                jugadores.get(i).getWriterStream().writeUTF(mess);
-        }
-    }
-    public void sendToClient(String message)
-    {
-        if(message.equals("exit"))
-            System.exit(0);
-        else
-        {
-            try {
-                writer.writeUTF(message);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-    }
-
-    public void sendAllClients(DataOutputStream writer, String pname)
-    {
-        for(int i=0;i<jugadores.size();i++)
-        {
-            if(jugadores.get(i)!=null) {
-                try {
-                    writer.writeUTF(protocol.NewPlayerPacket(i + 1, pname));
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }
-    }
-    public static class ClientInfo
-    {
-        private String nombre;
-        private int dinero; // Dinero del jugador
-        DataOutputStream dataOutputStream;
-        ArrayList<Carta> mano;
-
-        public ClientInfo(DataOutputStream dataOutputStream, String pname)
-        {
-            this.dataOutputStream = dataOutputStream;
-            this.nombre  = pname;
-        }
-        public DataOutputStream getWriterStream()
-        {
-            return dataOutputStream;
-        }
-        public void agregarCarta(Carta carta) {
-            mano.add(carta);
-        }
-
-        public int totalMano() {
-            int total = 0;
-            int ases = 0;
-
-            for (Carta carta : mano) {
-                total += carta.valorEnPuntos();
-                if (carta.getValor().equals("A")) {
-                    ases++;
-                }
-            }
-
-            // Ajustar el valor del As si es necesario
-            while (total > 21 && ases > 0) {
-                total -= 10; // Cambia el valor del As de 11 a 1
-                ases--;
-            }
-
-            return total;
-        }
-
-        public String getNombre() {
-            return nombre;
-        }
-
-        public ArrayList<Carta> getMano() {
-            return mano;
-        }
-
-        public int getDinero() {
-            return dinero;
-        }
-
-        public void sumarDinero(int cantidad) {
-            dinero += cantidad;
-        }
-
-        public void restarDinero(int cantidad) {
-            dinero -= cantidad;
         }
 
         @Override
-        public String toString() {
-            return nombre + " tiene " + mano.toString() + " y $" + dinero;
+        public void run() {
+            String messageFromClient;
+            while (socket.isConnected()) {
+                try {
+                    messageFromClient = bufferedReader.readLine();
+                    broadCastMessage(messageFromClient);
+                } catch (IOException e) {
+                    closeAll(socket, bufferedReader, bufferedWriter);
+                    break;
+                }
+            }
+        }
+
+
+        // Send a message to everyone except me.
+        public void broadCastMessage(String messageToSend) {
+            for (ClientHandler clientHandler : clientHandlers) {
+                try {
+                    if (!clientHandler.clientUserName.equals(this.clientUserName)) {
+                        clientHandler.bufferedWriter.write(messageToSend);
+                        clientHandler.bufferedWriter.newLine();
+                        clientHandler.bufferedWriter.flush();
+                    }
+                } catch (IOException e) {
+                    closeAll(socket, bufferedReader, bufferedWriter);
+                }
+            }
+        }
+
+        // Client left the chat.
+        public void removeClientHandler() {
+            clientHandlers.remove(this);
+            broadCastMessage("SERVER: " + clientUserName + " has left the game!");
+        }
+
+        public void closeAll(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
+            removeClientHandler();
+            try {
+                if (bufferedReader != null) {
+                    bufferedReader.close();
+                }
+                if (bufferedWriter != null) {
+                    bufferedWriter.close();
+                }
+                if (socket != null) {
+                    socket.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
+

@@ -1,78 +1,73 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class Cliente {
+
     private Socket socket;
-    private BufferedReader input;
-    private PrintWriter output;
-    private String nombre;
+    private BufferedReader bufferedReader;
+    private BufferedWriter bufferedWriter;
+    private String username;
 
-    public Cliente(String nombre, String ipServidor, int puerto) {
-        this.nombre = nombre;
+    public Cliente(Socket socket, String username) {
         try {
-            // Conectar con el servidor
-            socket = new Socket(ipServidor, puerto);
-            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            output = new PrintWriter(socket.getOutputStream(), true);
-
-            // Enviar nombre del jugador al servidor
-            output.println(nombre);
+            this.socket = socket;
+            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            this.username = username;
         } catch (IOException e) {
-            System.err.println("Error al conectarse con el servidor: " + e.getMessage());
+            closeAll(socket, bufferedReader, bufferedWriter);
         }
     }
 
-    // Enviar mensaje al servidor
-    public void enviarMensaje(String mensaje) {
-        output.println(mensaje);
-    }
-
-    // Recibir mensaje del servidor
-    public String recibirMensaje() throws IOException {
-        return input.readLine();
-    }
-
-    // Lógica para manejar las interacciones con el servidor
-    public void jugar() {
+    public void sendMessage() {
         try {
-            BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
-            String respuestaServidor;
+            bufferedWriter.write(username);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
 
-            while ((respuestaServidor = recibirMensaje()) != null) {
-                System.out.println(respuestaServidor); // Mostrar mensaje del servidor
+            Scanner scanner = new Scanner(System.in);
+            while (socket.isConnected()) {
+                String messageToSend = scanner.nextLine();
+                bufferedWriter.write(username + ": " + messageToSend);
+                bufferedWriter.newLine();
+                bufferedWriter.flush();
+            }
+        } catch (IOException e) {
+            closeAll(socket, bufferedReader, bufferedWriter);
+        }
+    }
 
-                // Condiciones para responder al servidor
-                if (respuestaServidor.contains("Tu turno")) {
-                    System.out.println("Elige una acción: [pedir] / [plantarse]");
-                    String accion = teclado.readLine();
-                    enviarMensaje(accion); // Enviar la acción elegida al servidor
-                }
-
-                if (respuestaServidor.contains("¿Quieres jugar de nuevo?")) {
-                    System.out.println("Escribe [si] o [no]");
-                    String jugarDeNuevo = teclado.readLine();
-                    enviarMensaje(jugarDeNuevo); // Enviar la decisión al servidor
+    public void listenForMessages() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String messageFromGroupChat;
+                while (socket.isConnected()) {
+                    try {
+                        messageFromGroupChat = bufferedReader.readLine();
+                        System.out.println(messageFromGroupChat);
+                    } catch (IOException e) {
+                        closeAll(socket, bufferedReader, bufferedWriter);
+                    }
                 }
             }
-
-        } catch (IOException e) {
-            System.err.println("Error en la comunicación con el servidor: " + e.getMessage());
-        } finally {
-            cerrarConexion();
-        }
+        }).start();
     }
 
-    // Cerrar la conexión con el servidor
-    public void cerrarConexion() {
+    public void closeAll(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
         try {
+            if (bufferedReader != null) {
+                bufferedReader.close();
+            }
+            if (bufferedWriter != null) {
+                bufferedWriter.close();
+            }
             if (socket != null) {
                 socket.close();
             }
         } catch (IOException e) {
-            System.err.println("Error al cerrar la conexión: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
