@@ -55,7 +55,7 @@ public class Juego extends JFrame {
         btnPlantarse = new JButton("Plantarse");
         btnVolverAJugar = new JButton("Volver a Jugar");
         btnFold = new JButton("Fold");
-        btnDouble = new JButton("Duplicar");
+        btnDouble = new JButton("Double");
         btnSeguro = new JButton("Seguro");
         btnVolverAJugar.setEnabled(false); // Desactivar al inicio
         lblPuntosJugador = new JLabel(" Puntos Jugador: 0");
@@ -81,11 +81,11 @@ public class Juego extends JFrame {
         btnPlantarse.addActionListener(_ -> plantarse());
         btnVolverAJugar.addActionListener(_ -> reiniciarJuego());
         btnDouble.addActionListener(_ -> {
-            JOptionPane.showMessageDialog(this, "No implementado");
+            doubleDown();
         });
         btnSeguro.addActionListener(_ -> seguro());
         btnFold.addActionListener(_ -> {
-            JOptionPane.showMessageDialog(this, "No implementado");
+            fold();
         });
 
         // Inicializa el juego
@@ -119,11 +119,16 @@ public class Juego extends JFrame {
         boolean betSet = false;
         while (!betSet) {
             try {
-                int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta"));
                 if (jugador.getDinero() <= 0) {
                     JOptionPane.showMessageDialog(this, "Sin plata no vas a llegar muy lejos");
                     gameOver();
-                } else if (apuesta <= jugador.getDinero()) {
+                }
+                int apuesta = Integer.parseInt(JOptionPane.showInputDialog("Ingresa tu apuesta\nTienes $" + jugador.getDinero()));
+                if (apuesta < 0) {
+                    JOptionPane.showMessageDialog(this, "Saliendo.");
+                    System.exit(0);
+                }
+                if (apuesta <= jugador.getDinero()) {
                     jugador.setApuesta(apuesta);
                     betSet = true;
                 } else if (apuesta == 0) {
@@ -246,6 +251,7 @@ public class Juego extends JFrame {
                 btnPedirCarta.setEnabled(false);
                 btnPlantarse.setEnabled(false);
                 btnVolverAJugar.setEnabled(true);
+                btnDouble.setEnabled(false);
                 detenerMusica();
             }
         } else {
@@ -267,7 +273,22 @@ public class Juego extends JFrame {
         btnPedirCarta.setEnabled(false);
         btnPlantarse.setEnabled(false);
         btnVolverAJugar.setEnabled(true);
+        btnDouble.setEnabled(false);
+        btnFold.setEnabled(false);
         detenerMusica();
+    }
+
+    private void doubleDown() {
+        int apuesta = this.jugador.getApuesta() * 2;
+        if (this.jugador.getDinero() >= apuesta) {
+            this.jugador.setApuesta(apuesta);
+            pedirCarta();
+            plantarse();
+            refreshBets();
+        } else {
+            this.btnDouble.setEnabled(false);
+            JOptionPane.showMessageDialog(this, "No tienes dinero suficiente para realizar esta accion");
+        }
     }
 
     private void seguro() {
@@ -317,9 +338,11 @@ public class Juego extends JFrame {
         } else{
             JOptionPane.showMessageDialog(this, "No puedes usar el seguro si el dealer no tiene un ace visible");
         }
+        btnDouble.setEnabled(false);
     }
 
     private void jugarDealer() {
+        refreshBets();
         // Inicia el turno del dealer y actualiza el estado de la apuesta
         while (true) {
             int dealerMoney = dealer.getDinero();
@@ -369,6 +392,7 @@ public class Juego extends JFrame {
 
 
     private void determinarGanador() {
+        refreshBets();
         int puntosJugador = jugador.totalMano();
         int puntosDealer = dealer.totalMano();
         int apuesta = jugador.getApuesta();
@@ -384,17 +408,19 @@ public class Juego extends JFrame {
             } else {
                 // Gana de forma normal
                 dealer.restarDinero(apuestaDealer);
-                jugador.sumarDinero(apuesta * 2); // Recupera su apuesta + ganancia igual a la apuesta
+                jugador.sumarDinero(jugador.getApuesta() * 2); // Recupera su apuesta + ganancia igual a la apuesta
                 JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos y ganas " + apuesta);
             }
         } else if (puntosJugador <= 21 && puntosJugador > puntosDealer) {
             // Gana el jugador de forma normal
-            jugador.sumarDinero(apuesta * 2); // Recupera su apuesta + ganancia igual a la apuesta
+            jugador.sumarDinero(jugador.getApuesta() * 2); // Recupera su apuesta + ganancia igual a la apuesta
             dealer.restarDinero(apuestaDealer);
             JOptionPane.showMessageDialog(this, "¡Felicidades! Ganaste con " + puntosJugador + " puntos y ganas " + apuesta);
         } else if (puntosJugador == puntosDealer) {
             // Empate, no se modifica el dinero
             JOptionPane.showMessageDialog(this, "Es un empate. Recuperas tu apuesta.");
+            dealer.sumarDinero(apuestaDealer);
+            jugador.sumarDinero(jugador.getApuesta());
         } else {
             // Gana el dealer o se pasa el jugador
             JOptionPane.showMessageDialog(this, "El dealer gana con " + puntosDealer + " puntos.");
@@ -431,8 +457,7 @@ public class Juego extends JFrame {
                 cartasQueHacenPasarse++;
             }
         }
-        double probablidad = (double) cartasQueHacenPasarse / cartasRestantesMazo.size();
-        return probablidad; // Retorna la probabilidad
+        return (double) cartasQueHacenPasarse / cartasRestantesMazo.size(); // Retorna la probabilidad
     }
 
 
@@ -456,6 +481,7 @@ public class Juego extends JFrame {
         btnPlantarse.setEnabled(true); // Habilitar botón "Plantarse"
         btnSeguro.setEnabled(true); // Habilitar boton "Seguro"
         btnVolverAJugar.setEnabled(false);
+        btnDouble.setEnabled(true);
         mostrarMenuInicio();
         detenerMusica();
     }
@@ -479,7 +505,11 @@ public class Juego extends JFrame {
     }
 
     private void fold() {
-
+        int ap = jugador.getApuesta() / 2;
+        jugador.sumarDinero(ap);
+        dealer.sumarDinero(dealer.getApuesta() * 2);
+        JOptionPane.showMessageDialog(null, "Te has rendido. Consejo: el que no arriesga, no gana\nRecuperaste la mitad de tu apuesta");
+        reiniciarJuego();
     }
 
     public static void main(String[] args) {
